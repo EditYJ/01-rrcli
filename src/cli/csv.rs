@@ -1,6 +1,8 @@
-use std::{fmt::Display, path::Path, str::FromStr};
-
+use super::CmdExecutor;
+use crate::convert_csv_in_file;
+use anyhow::Result;
 use clap::Parser;
+use std::{fmt::Display, path::Path, str::FromStr};
 
 #[derive(Debug, Clone, Copy)]
 pub enum CsvFormatType {
@@ -70,4 +72,17 @@ pub struct CsvOptions {
     /// 输出文件格式，默认json
     #[arg(short, long, value_parser=parse_csv_format_value, default_value = "json")]
     pub format: CsvFormatType,
+}
+
+impl CmdExecutor for CsvOptions {
+    async fn execute(&self) -> Result<()> {
+        let output = if let Some(output) = &self.output {
+            output.clone()
+        } else {
+            format!("output.{}", self.format)
+        };
+        convert_csv_in_file(self.input.clone(), output, self.format)?;
+
+        Ok(())
+    }
 }

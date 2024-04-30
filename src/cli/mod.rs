@@ -1,7 +1,13 @@
 mod csv;
 
+use anyhow::Result;
 use clap::{command, Parser, Subcommand};
 pub use csv::{CsvFormatType, CsvOptions};
+
+#[allow(async_fn_in_trait)]
+pub trait CmdExecutor {
+    async fn execute(&self) -> Result<()>;
+}
 
 #[derive(Subcommand)]
 pub enum RCliCommand {
@@ -14,4 +20,12 @@ pub enum RCliCommand {
 pub struct Cli {
     #[command(subcommand)]
     pub subcommand: RCliCommand,
+}
+
+impl CmdExecutor for Cli {
+    async fn execute(&self) -> Result<()> {
+        match &self.subcommand {
+            RCliCommand::Csv(options) => options.execute().await,
+        }
+    }
 }
