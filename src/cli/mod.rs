@@ -1,8 +1,11 @@
 mod csv;
+mod gen_pass;
 
 use anyhow::Result;
 use clap::{command, Parser, Subcommand};
 pub use csv::{CsvFormatType, CsvOptions};
+
+use self::gen_pass::GenPassOptions;
 
 #[allow(async_fn_in_trait)]
 pub trait CmdExecutor {
@@ -13,6 +16,8 @@ pub trait CmdExecutor {
 pub enum RCliCommand {
     #[command(about = "转换csv文件内容到json、yaml、toml")]
     Csv(CsvOptions),
+    #[command(name = "genpass", about = "转换csv文件内容到json、yaml、toml")]
+    GenPass(GenPassOptions),
 }
 
 #[derive(Parser)]
@@ -25,7 +30,8 @@ pub struct Cli {
 impl CmdExecutor for Cli {
     async fn execute(&self) -> Result<()> {
         match &self.subcommand {
-            RCliCommand::Csv(options) => options.execute().await,
+            RCliCommand::Csv(opt) => opt.execute().await,
+            RCliCommand::GenPass(opt) => opt.execute().await,
         }
     }
 }
