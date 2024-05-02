@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::{
     fs::{write, File},
     io::stdin,
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 pub fn save_str_in_file(save_path: String, content: String) -> Result<()> {
@@ -15,6 +15,15 @@ pub fn verify_file(s: &str) -> Result<String, String> {
         Ok(s.into())
     } else {
         Err(format!("指定文件不存在: {}", s))
+    }
+}
+
+pub fn verify_dir(s: &str) -> Result<PathBuf, String> {
+    let path = Path::new(s);
+    if path.exists() && path.is_dir() {
+        Ok(s.into())
+    } else {
+        Err(format!("指定目录不存在: {}", s))
     }
 }
 
