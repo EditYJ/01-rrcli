@@ -1,6 +1,7 @@
 mod base64;
 mod csv;
 mod gen_pass;
+mod http;
 mod text;
 
 use anyhow::Result;
@@ -9,7 +10,9 @@ use clap::{command, Parser, Subcommand};
 pub use csv::{CsvFormatType, CsvOptions};
 pub use text::{TextSignFormatType, TextSignOption};
 
-use self::{base64::Base64SubCommand, gen_pass::GenPassOptions, text::TextSubCommand};
+use self::{
+    base64::Base64SubCommand, gen_pass::GenPassOptions, http::HttpSubCommand, text::TextSubCommand,
+};
 
 #[allow(async_fn_in_trait)]
 pub trait CmdExecutor {
@@ -26,6 +29,8 @@ pub enum RCliCommand {
     Base64(Base64SubCommand),
     #[command(subcommand)]
     Text(TextSubCommand),
+    #[command(subcommand)]
+    Http(HttpSubCommand),
 }
 
 #[derive(Parser)]
@@ -42,6 +47,7 @@ impl CmdExecutor for Cli {
             RCliCommand::GenPass(opt) => opt.execute().await,
             RCliCommand::Base64(sub_cmd) => sub_cmd.execute().await,
             RCliCommand::Text(sub_cmd) => sub_cmd.execute().await,
+            RCliCommand::Http(sub_cmd) => sub_cmd.execute().await,
         }
     }
 }
