@@ -1,8 +1,8 @@
 use super::CmdExecutor;
-use crate::convert_csv_in_file;
+use crate::{convert_csv_in_file, utils::verify_file};
 use anyhow::Result;
 use clap::Parser;
-use std::{fmt::Display, path::Path, str::FromStr};
+use std::{fmt::Display, str::FromStr};
 
 #[derive(Debug, Clone, Copy)]
 pub enum CsvFormatType {
@@ -49,14 +49,6 @@ impl Display for CsvFormatType {
 
 fn parse_csv_format_value(s: &str) -> Result<CsvFormatType, &'static str> {
     s.parse()
-}
-
-fn verify_file(s: &str) -> Result<String, String> {
-    if Path::new(s).exists() {
-        Ok(s.to_string())
-    } else {
-        Err(format!("指定文件不存在: {}", s))
-    }
 }
 
 #[derive(Debug, Parser)]
