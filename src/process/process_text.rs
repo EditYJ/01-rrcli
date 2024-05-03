@@ -1,7 +1,7 @@
 use crate::{gen_pass, utils::get_reader_from_path, TextSignFormatType};
 use anyhow::Result;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use ed25519_dalek::{Signature, Signer, SigningKey};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use rand::rngs::OsRng;
 use std::{fs, io::Read, path::Path};
 
@@ -13,7 +13,7 @@ pub fn sign_text(text: &str, key: &str, format: TextSignFormatType) -> Result<St
             blake3.sign(&mut reader)?
         }
         TextSignFormatType::Ed25519 => {
-            let ed25519 = Ed25519::load(key)?;
+            let ed25519 = Ed25519Signer::load(key)?;
             ed25519.sign(&mut reader)?
         }
     };
@@ -33,7 +33,7 @@ pub fn verify_text(input: &str, key: &str, sig: &str, format: TextSignFormatType
             blake3.verify(&mut reader, &sig)
         }
         TextSignFormatType::Ed25519 => {
-            let ed25519 = Ed25519::load(key)?;
+            let ed25519 = Ed25519Verifier::load(key)?;
             ed25519.verify(&mut reader, &sig)
         }
     }
@@ -42,7 +42,7 @@ pub fn verify_text(input: &str, key: &str, sig: &str, format: TextSignFormatType
 pub fn generate_key(format: TextSignFormatType) -> Result<Vec<Vec<u8>>> {
     match format {
         TextSignFormatType::Blake3 => Blake3::generate(),
-        TextSignFormatType::Ed25519 => Ed25519::generate(),
+        TextSignFormatType::Ed25519 => Ed25519Signer::generate(),
     }
 }
 
@@ -117,11 +117,11 @@ impl KeyGenerator for Blake3 {
     }
 }
 
-pub struct Ed25519 {
+pub struct Ed25519Signer {
     pub key: SigningKey,
 }
 
-impl Ed25519 {
+impl Ed25519Signer {
     pub fn new(key: SigningKey) -> Self {
         Self { key }
     }
@@ -132,7 +132,7 @@ impl Ed25519 {
     }
 }
 
-impl TextSign for Ed25519 {
+impl TextSign for Ed25519Signer {
     fn sign(&self, reader: &mut dyn Read) -> Result<Vec<u8>> {
         let mut vec = Vec::new();
         reader.read_to_end(&mut vec)?;
@@ -141,30 +141,51 @@ impl TextSign for Ed25519 {
     }
 }
 
-impl TextVerify for Ed25519 {
-    fn verify(&self, reader: &mut dyn Read, signature: &[u8]) -> Result<bool> {
-        let mut vec = Vec::new();
-        reader.read_to_end(&mut vec)?;
-        let from_bytes = Signature::from_bytes(signature.try_into()?);
-        let verify = self.key.verify(&vec, &from_bytes);
-        Ok(verify.is_ok())
-    }
-}
-
-impl KeyLoader for Ed25519 {
+impl KeyLoader for Ed25519Signer {
     fn load(path: impl AsRef<Path>) -> Result<Self> {
         let key = fs::read(path)?;
         Self::try_new(&key)
     }
 }
 
-impl KeyGenerator for Ed25519 {
+impl KeyGenerator for Ed25519Signer {
     fn generate() -> Result<Vec<Vec<u8>>> {
         let mut os_rng = OsRng;
         let sk = SigningKey::generate(&mut os_rng);
         let pk = sk.verifying_key().to_bytes().to_vec();
         let sk = sk.to_bytes().to_vec();
         Ok(vec![sk, pk])
+    }
+}
+
+pub struct Ed25519Verifier {
+    pub key: VerifyingKey,
+}
+
+impl Ed25519Verifier {
+    pub fn new(key: VerifyingKey) -> Self {
+        Self { key }
+    }
+
+    pub fn try_new(key: &[u8]) -> Result<Self> {
+        let key = VerifyingKey::from_bytes(key.try_into()?)?;
+        Ok(Self::new(key))
+    }
+}
+
+impl KeyLoader for Ed25519Verifier {
+    fn load(path: impl AsRef<Path>) -> Result<Self> {
+        let vec = fs::read(path)?;
+        Self::try_new(&vec)
+    }
+}
+
+impl TextVerify for Ed25519Verifier {
+    fn verify(&self, reader: &mut dyn Read, signature: &[u8]) -> Result<bool> {
+        let mut vec = Vec::new();
+        reader.read_to_end(&mut vec)?;
+        let sig = Signature::from_bytes(signature.try_into()?);
+        Ok(self.key.verify(&vec, &sig).is_ok())
     }
 }
 
@@ -185,12 +206,12 @@ mod test {
 
     #[test]
     fn test_ed25519_sign_text() -> Result<()> {
-        let sk = Ed25519::load("fixtures/process_text/ed25519.sk")?;
+        let sk = Ed25519Signer::load("fixtures/process_text/ed25519.sk")?;
+        let pk = Ed25519Verifier::load("fixtures/process_text/ed25519.pk")?;
         let data = b"hello world!";
         let sign = sk.sign(&mut &data[..])?;
-        let sig = sk.verify(&mut &data[..], &sign)?;
-        assert!(sig);
-
+        let verify = pk.verify(&mut &data[..], &sign)?;
+        assert!(verify);
         Ok(())
     }
 }
